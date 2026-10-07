@@ -1,9 +1,9 @@
-import httpx
-from mcp.server.fastmcp import FastMCP
+import httpx2 as httpx
+from mcp.server.mcpserver import MCPServer
 import logging
 import os
 import base64
-from typing import Optional, Dict, Union, Any, List
+from typing import Optional, Union, Any
 from enum import IntEnum, Enum
 import re
 from pydantic import BaseModel, Field
@@ -11,14 +11,14 @@ from pydantic import BaseModel, Field
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Initialize FastMCP server
-mcp = FastMCP("freshdesk-mcp")
+# Initialize MCP server
+mcp = MCPServer("freshdesk-mcp")
 
 FRESHDESK_API_KEY = os.getenv("FRESHDESK_API_KEY")
 FRESHDESK_DOMAIN = os.getenv("FRESHDESK_DOMAIN")
 
 
-def parse_link_header(link_header: str) -> Dict[str, Optional[int]]:
+def parse_link_header(link_header: str) -> dict[str, Optional[int]]:
     """Parse the Link header to extract pagination information.
 
     Args:
@@ -90,7 +90,7 @@ class UnassignedForOptions(str, Enum):
 class GroupCreate(BaseModel):
     name: str = Field(..., description="Name of the group")
     description: Optional[str] = Field(None, description="Description of the group")
-    agent_ids: Optional[List[int]] = Field(
+    agent_ids: Optional[list[int]] = Field(
         default=None,
         description="Array of agent user ids"
     )
@@ -141,7 +141,7 @@ class ContactFieldCreate(BaseModel):
         default=False,
         description="Set to true if the customers can see the field in the customer portal"
     )
-    choices: Optional[List[Dict[str, Union[str, int]]]] = Field(
+    choices: Optional[list[dict[str, Union[str, int]]]] = Field(
         default=None,
         description="Array of objects in format {'value': 'Choice text', 'position': 1} for dropdown choices"
     )
@@ -156,13 +156,13 @@ class CannedResponseCreate(BaseModel):
         ge=0,
         le=2
     )
-    group_ids: Optional[List[int]] = Field(
+    group_ids: Optional[list[int]] = Field(
         None,
         description="Groups for which the canned response is visible. Required if visibility=2"
     )
 
 @mcp.tool()
-async def get_ticket_fields() -> Dict[str, Any]:
+async def get_ticket_fields() -> dict[str, Any]:
     """Get ticket fields from Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/ticket_fields"
     headers = {
@@ -174,7 +174,7 @@ async def get_ticket_fields() -> Dict[str, Any]:
 
 
 @mcp.tool()
-async def get_tickets(page: Optional[int] = 1, per_page: Optional[int] = 30) -> Dict[str, Any]:
+async def get_tickets(page: Optional[int] = 1, per_page: Optional[int] = 30) -> dict[str, Any]:
     """Get tickets from Freshdesk with pagination support."""
     # Validate input parameters
     if page < 1:
@@ -230,8 +230,8 @@ async def create_ticket(
     status: Union[int, str],
     email: Optional[str] = None,
     requester_id: Optional[int] = None,
-    custom_fields: Optional[Dict[str, Any]] = None,
-    additional_fields: Optional[Dict[str, Any]] = None  # 👈 new parameter
+    custom_fields: Optional[dict[str, Any]] = None,
+    additional_fields: Optional[dict[str, Any]] = None  # 👈 new parameter
 ) -> str:
     """Create a ticket in Freshdesk"""
     # Validate requester information
@@ -303,7 +303,7 @@ async def create_ticket(
             return f"Error: An unexpected error occurred - {str(e)}"
 
 @mcp.tool()
-async def update_ticket(ticket_id: int, ticket_fields: Dict[str, Any]) -> Dict[str, Any]:
+async def update_ticket(ticket_id: int, ticket_fields: dict[str, Any]) -> dict[str, Any]:
     """Update a ticket in Freshdesk."""
     if not ticket_fields:
         return {"error": "No fields provided for update"}
@@ -358,7 +358,7 @@ async def update_ticket(ticket_id: int, ticket_fields: Dict[str, Any]) -> Dict[s
             }
 
 @mcp.tool()
-async def delete_ticket(ticket_id: int) -> str:
+async def delete_ticket(ticket_id: int) -> dict[str, Any]:
     """Delete a ticket in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets/{ticket_id}"
     headers = {
@@ -369,7 +369,7 @@ async def delete_ticket(ticket_id: int) -> str:
         return response.json()
 
 @mcp.tool()
-async def get_ticket(ticket_id: int):
+async def get_ticket(ticket_id: int) -> dict[str, Any]:
     """Get a ticket in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets/{ticket_id}"
     headers = {
@@ -381,7 +381,7 @@ async def get_ticket(ticket_id: int):
         return response.json()
 
 @mcp.tool()
-async def search_tickets(query: str) -> Dict[str, Any]:
+async def search_tickets(query: str) -> dict[str, Any]:
     """Search for tickets in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/search/tickets"
     headers = {
@@ -393,7 +393,7 @@ async def search_tickets(query: str) -> Dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def get_ticket_conversation(ticket_id: int)-> list[Dict[str, Any]]:
+async def get_ticket_conversation(ticket_id: int)-> list[dict[str, Any]]:
     """Get a ticket conversation in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets/{ticket_id}/conversations"
     headers = {
@@ -407,11 +407,11 @@ async def get_ticket_conversation(ticket_id: int)-> list[Dict[str, Any]]:
 async def create_ticket_reply(
     ticket_id: int,
     body: str,
-    cc_emails: Optional[List[str]] = None,
-    bcc_emails: Optional[List[str]] = None,
+    cc_emails: Optional[list[str]] = None,
+    bcc_emails: Optional[list[str]] = None,
     from_email: Optional[str] = None,
     user_id: Optional[int] = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Create a reply to a ticket in Freshdesk.
 
     Args:
@@ -444,7 +444,7 @@ async def create_ticket_reply(
         return response.json()
 
 @mcp.tool()
-async def create_ticket_note(ticket_id: int,body: str)-> Dict[str, Any]:
+async def create_ticket_note(ticket_id: int,body: str)-> dict[str, Any]:
     """Create a note for a ticket in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets/{ticket_id}/notes"
     headers = {
@@ -458,7 +458,7 @@ async def create_ticket_note(ticket_id: int,body: str)-> Dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def update_ticket_conversation(conversation_id: int,body: str)-> Dict[str, Any]:
+async def update_ticket_conversation(conversation_id: int,body: str)-> dict[str, Any]:
     """Update a conversation for a ticket in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/conversations/{conversation_id}"
     headers = {
@@ -476,7 +476,7 @@ async def update_ticket_conversation(conversation_id: int,body: str)-> Dict[str,
             return f"Cannot update conversation ${response.json()}"
 
 @mcp.tool()
-async def get_agents(page: Optional[int] = 1, per_page: Optional[int] = 30)-> list[Dict[str, Any]]:
+async def get_agents(page: Optional[int] = 1, per_page: Optional[int] = 30) -> dict[str, Any] | list[dict[str, Any]]:
     """Get all agents in Freshdesk with pagination support."""
     # Validate input parameters
     if page < 1:
@@ -497,7 +497,7 @@ async def get_agents(page: Optional[int] = 1, per_page: Optional[int] = 30)-> li
         return response.json()
 
 @mcp.tool()
-async def list_contacts(page: Optional[int] = 1, per_page: Optional[int] = 30)-> list[Dict[str, Any]]:
+async def list_contacts(page: Optional[int] = 1, per_page: Optional[int] = 30)-> list[dict[str, Any]]:
     """List all contacts in Freshdesk with pagination support."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/contacts"
     headers = {
@@ -512,7 +512,7 @@ async def list_contacts(page: Optional[int] = 1, per_page: Optional[int] = 30)->
         return response.json()
 
 @mcp.tool()
-async def get_contact(contact_id: int)-> Dict[str, Any]:
+async def get_contact(contact_id: int)-> dict[str, Any]:
     """Get a contact in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/contacts/{contact_id}"
     headers = {
@@ -523,7 +523,7 @@ async def get_contact(contact_id: int)-> Dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def search_contacts(query: str)-> list[Dict[str, Any]]:
+async def search_contacts(query: str)-> list[dict[str, Any]]:
     """Search for contacts in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/contacts/autocomplete"
     headers = {
@@ -535,7 +535,7 @@ async def search_contacts(query: str)-> list[Dict[str, Any]]:
         return response.json()
 
 @mcp.tool()
-async def update_contact(contact_id: int, contact_fields: Dict[str, Any])-> Dict[str, Any]:
+async def update_contact(contact_id: int, contact_fields: dict[str, Any])-> dict[str, Any]:
     """Update a contact in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/contacts/{contact_id}"
     headers = {
@@ -548,7 +548,7 @@ async def update_contact(contact_id: int, contact_fields: Dict[str, Any])-> Dict
         response = await client.put(url, headers=headers, json=data)
         return response.json()
 @mcp.tool()
-async def list_canned_responses(folder_id: int)-> list[Dict[str, Any]]:
+async def list_canned_responses(folder_id: int)-> list[dict[str, Any]]:
     """List all canned responses in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/canned_response_folders/{folder_id}/responses"
     headers = {
@@ -562,7 +562,7 @@ async def list_canned_responses(folder_id: int)-> list[Dict[str, Any]]:
     return canned_responses
 
 @mcp.tool()
-async def list_canned_response_folders()-> list[Dict[str, Any]]:
+async def list_canned_response_folders()-> list[dict[str, Any]]:
     """List all canned response folders in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/canned_response_folders"
     headers = {
@@ -573,7 +573,7 @@ async def list_canned_response_folders()-> list[Dict[str, Any]]:
         return response.json()
 
 @mcp.tool()
-async def view_canned_response(canned_response_id: int)-> Dict[str, Any]:
+async def view_canned_response(canned_response_id: int)-> dict[str, Any]:
     """View a canned response in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/canned_responses/{canned_response_id}"
     headers = {
@@ -583,7 +583,7 @@ async def view_canned_response(canned_response_id: int)-> Dict[str, Any]:
         response = await client.get(url, headers=headers)
         return response.json()
 @mcp.tool()
-async def create_canned_response(canned_response_fields: Dict[str, Any])-> Dict[str, Any]:
+async def create_canned_response(canned_response_fields: dict[str, Any])-> dict[str, Any]:
     """Create a canned response in Freshdesk."""
     # Validate input using Pydantic model
     try:
@@ -602,7 +602,7 @@ async def create_canned_response(canned_response_fields: Dict[str, Any])-> Dict[
         return response.json()
 
 @mcp.tool()
-async def update_canned_response(canned_response_id: int, canned_response_fields: Dict[str, Any])-> Dict[str, Any]:
+async def update_canned_response(canned_response_id: int, canned_response_fields: dict[str, Any])-> dict[str, Any]:
     """Update a canned response in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/canned_responses/{canned_response_id}"
     headers = {
@@ -612,7 +612,7 @@ async def update_canned_response(canned_response_id: int, canned_response_fields
         response = await client.put(url, headers=headers, json=canned_response_fields)
         return response.json()
 @mcp.tool()
-async def create_canned_response_folder(name: str)-> Dict[str, Any]:
+async def create_canned_response_folder(name: str)-> dict[str, Any]:
     """Create a canned response folder in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/canned_response_folders"
     headers = {
@@ -625,7 +625,7 @@ async def create_canned_response_folder(name: str)-> Dict[str, Any]:
         response = await client.post(url, headers=headers, json=data)
         return response.json()
 @mcp.tool()
-async def update_canned_response_folder(folder_id: int, name: str)-> Dict[str, Any]:
+async def update_canned_response_folder(folder_id: int, name: str)-> dict[str, Any]:
     """Update a canned response folder in Freshdesk."""
     print(folder_id, name)
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/canned_response_folders/{folder_id}"
@@ -640,7 +640,7 @@ async def update_canned_response_folder(folder_id: int, name: str)-> Dict[str, A
         return response.json()
 
 @mcp.tool()
-async def list_solution_articles(folder_id: int)-> list[Dict[str, Any]]:
+async def list_solution_articles(folder_id: int)-> list[dict[str, Any]]:
     """List all solution articles in Freshdesk."""
     solution_articles = []
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/solutions/folders/{folder_id}/articles"
@@ -654,7 +654,7 @@ async def list_solution_articles(folder_id: int)-> list[Dict[str, Any]]:
     return solution_articles
 
 @mcp.tool()
-async def list_solution_folders(category_id: int)-> list[Dict[str, Any]]:
+async def list_solution_folders(category_id: int) -> dict[str, Any] | list[dict[str, Any]]:
     if not category_id:
         return {"error": "Category ID is required"}
     """List all solution folders in Freshdesk."""
@@ -667,7 +667,7 @@ async def list_solution_folders(category_id: int)-> list[Dict[str, Any]]:
         return response.json()
 
 @mcp.tool()
-async def list_solution_categories()-> list[Dict[str, Any]]:
+async def list_solution_categories()-> list[dict[str, Any]]:
     """List all solution categories in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/solutions/categories"
     headers = {
@@ -678,7 +678,7 @@ async def list_solution_categories()-> list[Dict[str, Any]]:
         return response.json()
 
 @mcp.tool()
-async def view_solution_category(category_id: int)-> Dict[str, Any]:
+async def view_solution_category(category_id: int)-> dict[str, Any]:
     """View a solution category in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/solutions/categories/{category_id}"
     headers = {
@@ -689,7 +689,7 @@ async def view_solution_category(category_id: int)-> Dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def create_solution_category(category_fields: Dict[str, Any])-> Dict[str, Any]:
+async def create_solution_category(category_fields: dict[str, Any])-> dict[str, Any]:
     """Create a solution category in Freshdesk."""
     if not category_fields.get("name"):
         return {"error": "Name is required"}
@@ -703,7 +703,7 @@ async def create_solution_category(category_fields: Dict[str, Any])-> Dict[str, 
         return response.json()
 
 @mcp.tool()
-async def update_solution_category(category_id: int, category_fields: Dict[str, Any])-> Dict[str, Any]:
+async def update_solution_category(category_id: int, category_fields: dict[str, Any])-> dict[str, Any]:
     """Update a solution category in Freshdesk."""
     if not category_fields.get("name"):
         return {"error": "Name is required"}
@@ -717,7 +717,7 @@ async def update_solution_category(category_id: int, category_fields: Dict[str, 
         return response.json()
 
 @mcp.tool()
-async def create_solution_category_folder(category_id: int, folder_fields: Dict[str, Any])-> Dict[str, Any]:
+async def create_solution_category_folder(category_id: int, folder_fields: dict[str, Any])-> dict[str, Any]:
     """Create a solution category folder in Freshdesk."""
     if not folder_fields.get("name"):
         return {"error": "Name is required"}
@@ -730,7 +730,7 @@ async def create_solution_category_folder(category_id: int, folder_fields: Dict[
         return response.json()
 
 @mcp.tool()
-async def view_solution_category_folder(folder_id: int)-> Dict[str, Any]:
+async def view_solution_category_folder(folder_id: int)-> dict[str, Any]:
     """View a solution category folder in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/solutions/folders/{folder_id}"
     headers = {
@@ -740,7 +740,7 @@ async def view_solution_category_folder(folder_id: int)-> Dict[str, Any]:
         response = await client.get(url, headers=headers)
         return response.json()
 @mcp.tool()
-async def update_solution_category_folder(folder_id: int, folder_fields: Dict[str, Any])-> Dict[str, Any]:
+async def update_solution_category_folder(folder_id: int, folder_fields: dict[str, Any])-> dict[str, Any]:
     """Update a solution category folder in Freshdesk."""
     if not folder_fields.get("name"):
         return {"error": "Name is required"}
@@ -754,7 +754,7 @@ async def update_solution_category_folder(folder_id: int, folder_fields: Dict[st
 
 
 @mcp.tool()
-async def create_solution_article(folder_id: int, article_fields: Dict[str, Any])-> Dict[str, Any]:
+async def create_solution_article(folder_id: int, article_fields: dict[str, Any])-> dict[str, Any]:
     """Create a solution article in Freshdesk."""
     if not article_fields.get("title") or not article_fields.get("status") or not article_fields.get("description"):
         return {"error": "Title, status and description are required"}
@@ -767,7 +767,7 @@ async def create_solution_article(folder_id: int, article_fields: Dict[str, Any]
         return response.json()
 
 @mcp.tool()
-async def view_solution_article(article_id: int)-> Dict[str, Any]:
+async def view_solution_article(article_id: int)-> dict[str, Any]:
     """View a solution article in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/solutions/articles/{article_id}"
     headers = {
@@ -778,7 +778,7 @@ async def view_solution_article(article_id: int)-> Dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def update_solution_article(article_id: int, article_fields: Dict[str, Any])-> Dict[str, Any]:
+async def update_solution_article(article_id: int, article_fields: dict[str, Any])-> dict[str, Any]:
     """Update a solution article in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/solutions/articles/{article_id}"
     headers = {
@@ -789,7 +789,7 @@ async def update_solution_article(article_id: int, article_fields: Dict[str, Any
         return response.json()
 
 @mcp.tool()
-async def view_agent(agent_id: int)-> Dict[str, Any]:
+async def view_agent(agent_id: int)-> dict[str, Any]:
     """View an agent in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/agents/{agent_id}"
     headers = {
@@ -800,7 +800,7 @@ async def view_agent(agent_id: int)-> Dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def create_agent(agent_fields: Dict[str, Any]) -> Dict[str, Any]:
+async def create_agent(agent_fields: dict[str, Any]) -> dict[str, Any]:
     """Create an agent in Freshdesk."""
     # Validate mandatory fields
     if not agent_fields.get("email") or not agent_fields.get("ticket_scope"):
@@ -829,7 +829,7 @@ async def create_agent(agent_fields: Dict[str, Any]) -> Dict[str, Any]:
             }
 
 @mcp.tool()
-async def update_agent(agent_id: int, agent_fields: Dict[str, Any]) -> Dict[str, Any]:
+async def update_agent(agent_id: int, agent_fields: dict[str, Any]) -> dict[str, Any]:
     """Update an agent in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/agents/{agent_id}"
     headers = {
@@ -840,7 +840,7 @@ async def update_agent(agent_id: int, agent_fields: Dict[str, Any]) -> Dict[str,
         return response.json()
 
 @mcp.tool()
-async def search_agents(query: str) -> list[Dict[str, Any]]:
+async def search_agents(query: str) -> list[dict[str, Any]]:
     """Search for agents in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/agents/autocomplete?term={query}"
     headers = {
@@ -850,7 +850,7 @@ async def search_agents(query: str) -> list[Dict[str, Any]]:
         response = await client.get(url, headers=headers)
         return response.json()
 @mcp.tool()
-async def list_groups(page: Optional[int] = 1, per_page: Optional[int] = 30)-> list[Dict[str, Any]]:
+async def list_groups(page: Optional[int] = 1, per_page: Optional[int] = 30)-> list[dict[str, Any]]:
     """List all groups in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/groups"
     headers = {
@@ -865,7 +865,7 @@ async def list_groups(page: Optional[int] = 1, per_page: Optional[int] = 30)-> l
         return response.json()
 
 @mcp.tool()
-async def create_group(group_fields: Dict[str, Any]) -> Dict[str, Any]:
+async def create_group(group_fields: dict[str, Any]) -> dict[str, Any]:
     """Create a group in Freshdesk."""
     # Validate input using Pydantic model
     try:
@@ -893,7 +893,7 @@ async def create_group(group_fields: Dict[str, Any]) -> Dict[str, Any]:
             }
 
 @mcp.tool()
-async def view_group(group_id: int) -> Dict[str, Any]:
+async def view_group(group_id: int) -> dict[str, Any]:
     """View a group in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/groups/{group_id}"
     headers = {
@@ -904,7 +904,7 @@ async def view_group(group_id: int) -> Dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def create_ticket_field(ticket_field_fields: Dict[str, Any]) -> Dict[str, Any]:
+async def create_ticket_field(ticket_field_fields: dict[str, Any]) -> dict[str, Any]:
     """Create a ticket field in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/admin/ticket_fields"
     headers = {
@@ -914,7 +914,7 @@ async def create_ticket_field(ticket_field_fields: Dict[str, Any]) -> Dict[str, 
         response = await client.post(url, headers=headers, json=ticket_field_fields)
         return response.json()
 @mcp.tool()
-async def view_ticket_field(ticket_field_id: int) -> Dict[str, Any]:
+async def view_ticket_field(ticket_field_id: int) -> dict[str, Any]:
     """View a ticket field in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/admin/ticket_fields/{ticket_field_id}"
     headers = {
@@ -925,7 +925,7 @@ async def view_ticket_field(ticket_field_id: int) -> Dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def update_ticket_field(ticket_field_id: int, ticket_field_fields: Dict[str, Any]) -> Dict[str, Any]:
+async def update_ticket_field(ticket_field_id: int, ticket_field_fields: dict[str, Any]) -> dict[str, Any]:
     """Update a ticket field in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/admin/ticket_fields/{ticket_field_id}"
     headers = {
@@ -936,7 +936,7 @@ async def update_ticket_field(ticket_field_id: int, ticket_field_fields: Dict[st
         return response.json()
 
 @mcp.tool()
-async def update_group(group_id: int, group_fields: Dict[str, Any]) -> Dict[str, Any]:
+async def update_group(group_id: int, group_fields: dict[str, Any]) -> dict[str, Any]:
     """Update a group in Freshdesk."""
     try:
         validated_fields = GroupCreate(**group_fields)
@@ -960,7 +960,7 @@ async def update_group(group_id: int, group_fields: Dict[str, Any]) -> Dict[str,
             }
 
 @mcp.tool()
-async def list_contact_fields()-> list[Dict[str, Any]]:
+async def list_contact_fields()-> list[dict[str, Any]]:
     """List all contact fields in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/contact_fields"
     headers = {
@@ -971,7 +971,7 @@ async def list_contact_fields()-> list[Dict[str, Any]]:
         return response.json()
 
 @mcp.tool()
-async def view_contact_field(contact_field_id: int) -> Dict[str, Any]:
+async def view_contact_field(contact_field_id: int) -> dict[str, Any]:
     """View a contact field in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/contact_fields/{contact_field_id}"
     headers = {
@@ -982,7 +982,7 @@ async def view_contact_field(contact_field_id: int) -> Dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def create_contact_field(contact_field_fields: Dict[str, Any]) -> Dict[str, Any]:
+async def create_contact_field(contact_field_fields: dict[str, Any]) -> dict[str, Any]:
     """Create a contact field in Freshdesk."""
     # Validate input using Pydantic model
     try:
@@ -1000,7 +1000,7 @@ async def create_contact_field(contact_field_fields: Dict[str, Any]) -> Dict[str
         return response.json()
 
 @mcp.tool()
-async def update_contact_field(contact_field_id: int, contact_field_fields: Dict[str, Any]) -> Dict[str, Any]:
+async def update_contact_field(contact_field_id: int, contact_field_fields: dict[str, Any]) -> dict[str, Any]:
     """Update a contact field in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/contact_fields/{contact_field_id}"
     headers = {
@@ -1010,7 +1010,7 @@ async def update_contact_field(contact_field_id: int, contact_field_fields: Dict
         response = await client.put(url, headers=headers, json=contact_field_fields)
         return response.json()
 @mcp.tool()
-async def get_field_properties(field_name: str):
+async def get_field_properties(field_name: str) -> dict[str, Any] | None:
     """Get properties of a specific field by name."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/ticket_fields"
     headers = {
@@ -1080,7 +1080,7 @@ Notes:
 """
 
 @mcp.tool()
-async def list_companies(page: Optional[int] = 1, per_page: Optional[int] = 30) -> Dict[str, Any]:
+async def list_companies(page: Optional[int] = 1, per_page: Optional[int] = 30) -> dict[str, Any]:
     """List all companies in Freshdesk with pagination support."""
     # Validate input parameters
     if page < 1:
@@ -1128,7 +1128,7 @@ async def list_companies(page: Optional[int] = 1, per_page: Optional[int] = 30) 
             return {"error": f"An unexpected error occurred: {str(e)}"}
 
 @mcp.tool()
-async def view_company(company_id: int) -> Dict[str, Any]:
+async def view_company(company_id: int) -> dict[str, Any]:
     """Get a company in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/companies/{company_id}"
     headers = {
@@ -1147,7 +1147,7 @@ async def view_company(company_id: int) -> Dict[str, Any]:
             return {"error": f"An unexpected error occurred: {str(e)}"}
 
 @mcp.tool()
-async def search_companies(query: str) -> Dict[str, Any]:
+async def search_companies(query: str) -> dict[str, Any]:
     """Search for companies in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/companies/autocomplete"
     headers = {
@@ -1168,7 +1168,7 @@ async def search_companies(query: str) -> Dict[str, Any]:
             return {"error": f"An unexpected error occurred: {str(e)}"}
 
 @mcp.tool()
-async def find_company_by_name(name: str) -> Dict[str, Any]:
+async def find_company_by_name(name: str) -> dict[str, Any]:
     """Find a company by name in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/companies/autocomplete"
     headers = {
@@ -1188,7 +1188,7 @@ async def find_company_by_name(name: str) -> Dict[str, Any]:
             return {"error": f"An unexpected error occurred: {str(e)}"}
 
 @mcp.tool()
-async def list_company_fields() -> List[Dict[str, Any]]:
+async def list_company_fields() -> dict[str, Any] | list[dict[str, Any]]:
     """List all company fields in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/company_fields"
     headers = {
@@ -1207,7 +1207,7 @@ async def list_company_fields() -> List[Dict[str, Any]]:
             return {"error": f"An unexpected error occurred: {str(e)}"}
 
 @mcp.tool()
-async def view_ticket_summary(ticket_id: int) -> Dict[str, Any]:
+async def view_ticket_summary(ticket_id: int) -> dict[str, Any]:
     """Get the summary of a ticket in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets/{ticket_id}/summary"
     headers = {
@@ -1226,7 +1226,7 @@ async def view_ticket_summary(ticket_id: int) -> Dict[str, Any]:
             return {"error": f"An unexpected error occurred: {str(e)}"}
 
 @mcp.tool()
-async def update_ticket_summary(ticket_id: int, body: str) -> Dict[str, Any]:
+async def update_ticket_summary(ticket_id: int, body: str) -> dict[str, Any]:
     """Update the summary of a ticket in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets/{ticket_id}/summary"
     headers = {
@@ -1248,7 +1248,7 @@ async def update_ticket_summary(ticket_id: int, body: str) -> Dict[str, Any]:
             return {"error": f"An unexpected error occurred: {str(e)}"}
 
 @mcp.tool()
-async def delete_ticket_summary(ticket_id: int) -> Dict[str, Any]:
+async def delete_ticket_summary(ticket_id: int) -> dict[str, Any]:
     """Delete the summary of a ticket in Freshdesk."""
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets/{ticket_id}/summary"
     headers = {
