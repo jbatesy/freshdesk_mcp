@@ -1,5 +1,6 @@
 import httpx2 as httpx
 from mcp.server.mcpserver import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 import logging
 import os
 import base64
@@ -1317,8 +1318,29 @@ async def delete_ticket_summary(ticket_id: int) -> dict[str, Any]:
             return {"error": f"An unexpected error occurred: {str(e)}"}
 
 def main():
-    logging.info("Starting Freshdesk MCP server")
-    mcp.run(transport='stdio')
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
+    logging.info(f"Starting Freshdesk MCP server ({transport})")
+
+    if transport == "streamable-http":
+        # Keep DNS rebinding protection on even when bound to all interfaces (e.g. in Docker),
+        # so a web page can't reach the server through the user's browser. Extra hostnames
+        # (e.g. behind a reverse proxy) can be allowed with MCP_ALLOWED_HOSTS.
+        allowed_hosts = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
+        allowed_hosts += [h.strip() for h in os.getenv("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
+        allowed_origins = [f"{scheme}://{h}" for h in allowed_hosts for scheme in ("http", "https")]
+
+        mcp.run(
+            transport="streamable-http",
+            host=os.getenv("MCP_HOST", "127.0.0.1"),
+            port=int(os.getenv("MCP_PORT", "8000")),
+            transport_security=TransportSecuritySettings(
+                enable_dns_rebinding_protection=True,
+                allowed_hosts=allowed_hosts,
+                allowed_origins=allowed_origins,
+            ),
+        )
+    else:
+        mcp.run(transport="stdio")
 
 if __name__ == "__main__":
     main()

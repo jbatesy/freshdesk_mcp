@@ -156,6 +156,52 @@ The server offers several tools for Freshdesk operations:
 
 ## Getting Started
 
+### Running with Docker (recommended)
+
+The Docker image serves the MCP [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http) transport by default, at `http://localhost:8000/mcp`. It is built on a minimal, distroless Chainguard Python base and runs as a non-root user.
+
+```bash
+docker run -d --name freshdesk-mcp --restart unless-stopped \
+  -p 127.0.0.1:8000:8000 \
+  -e FRESHDESK_API_KEY=<YOUR_FRESHDESK_API_KEY> \
+  -e FRESHDESK_DOMAIN=<YOUR_FRESHDESK_DOMAIN> \
+  ghcr.io/jbatesy/freshdesk_mcp:latest
+```
+
+Or build the image yourself with `docker build -t freshdesk-mcp .` and use `freshdesk-mcp` as the image name.
+
+Then point your MCP client at the server. For Claude Code:
+
+```bash
+claude mcp add --transport http freshdesk http://localhost:8000/mcp
+```
+
+For clients configured with JSON:
+
+```json
+"mcpServers": {
+  "freshdesk-mcp": {
+    "type": "http",
+    "url": "http://localhost:8000/mcp"
+  }
+}
+```
+
+**Security**: the server has no authentication of its own, and anyone who can reach it can act on your Freshdesk account with your API key. The `-p 127.0.0.1:8000:8000` mapping above keeps it reachable only from your own machine. Requests whose `Host` or `Origin` header isn't localhost are rejected, which protects against DNS rebinding attacks from web pages open in your browser. If you expose the server beyond localhost, put it behind a reverse proxy that handles authentication and TLS, and allow the proxy's hostname with `MCP_ALLOWED_HOSTS`.
+
+The image can be configured with these environment variables:
+
+| Variable | Default in image | Description |
+| --- | --- | --- |
+| `FRESHDESK_API_KEY` | | Your Freshdesk API key (required) |
+| `FRESHDESK_DOMAIN` | | Your Freshdesk domain, e.g. `yourcompany.freshdesk.com` (required) |
+| `MCP_TRANSPORT` | `streamable-http` | `streamable-http` or `stdio` |
+| `MCP_HOST` | `0.0.0.0` | Address to listen on inside the container |
+| `MCP_PORT` | `8000` | Port to listen on |
+| `MCP_ALLOWED_HOSTS` | | Comma-separated extra `Host` values to accept besides localhost, e.g. `mcp.example.com` or `mcp.example.com:*` |
+
+To use the image over stdio instead, run it with `docker run -i --rm -e MCP_TRANSPORT=stdio ...`.
+
 ### Installing via Smithery
 
 To install freshdesk_mcp for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@effytech/freshdesk_mcp):
@@ -175,7 +221,9 @@ npx -y @smithery/cli install @effytech/freshdesk_mcp --client claude
 1. Generate your Freshdesk API key from the Freshdesk admin panel
 2. Set up your domain and authentication details
 
-### Usage with Claude Desktop
+### Usage with Claude Desktop (stdio via uvx)
+
+Outside Docker, the server uses the stdio transport by default. Set `MCP_TRANSPORT=streamable-http` to serve HTTP instead (it listens on `127.0.0.1:8000` unless `MCP_HOST`/`MCP_PORT` are set).
 
 1. Install Claude Desktop if you haven't already
 2. Add the following configuration to your `claude_desktop_config.json`:

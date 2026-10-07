@@ -26,7 +26,13 @@ WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
 
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" \
+    MCP_TRANSPORT=streamable-http \
+    MCP_HOST=0.0.0.0 \
+    MCP_PORT=8000
+
+# Streamable HTTP endpoint is served at http://<host>:8000/mcp
+EXPOSE 8000
 
 # Clear the base image's python entrypoint so the command can be overridden as before
 ENTRYPOINT []

@@ -23,7 +23,8 @@ startCommand:
       args: [],
       env: {
         FRESHDESK_API_KEY: config.freshdeskApiKey,
-        FRESHDESK_DOMAIN: config.freshdeskDomain
+        FRESHDESK_DOMAIN: config.freshdeskDomain,
+        MCP_TRANSPORT: 'stdio'
       }
     })
   exampleConfig:
