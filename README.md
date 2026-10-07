@@ -58,6 +58,8 @@ The server offers several tools for Freshdesk operations:
 - `get_ticket_conversation`: Get conversation for a ticket
   - **Inputs**:
     - `ticket_id` (number, required): ID of the ticket
+    - `page` (number, optional): Page number to fetch. If omitted, all pages are fetched and every conversation is returned
+    - `per_page` (number, optional): Number of conversations per page (1-100, default 100)
 
 - `create_ticket_reply`: Reply to a ticket
   - **Inputs**:

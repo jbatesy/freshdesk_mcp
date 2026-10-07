@@ -44,7 +44,7 @@ def parse_link_header(link_header: str) -> dict[str, Optional[int]]:
         if match:
             url, rel = match.groups()
             # Extract page number from URL
-            page_match = re.search(r'page=(\d+)', url)
+            page_match = re.search(r'[?&]page=(\d+)', url)
             if page_match:
                 page_num = int(page_match.group(1))
                 pagination[rel] = page_num
@@ -393,15 +393,62 @@ async def search_tickets(query: str) -> dict[str, Any]:
         return response.json()
 
 @mcp.tool()
-async def get_ticket_conversation(ticket_id: int)-> list[dict[str, Any]]:
-    """Get a ticket conversation in Freshdesk."""
+async def get_ticket_conversation(
+    ticket_id: int,
+    page: Optional[int] = None,
+    per_page: Optional[int] = 100
+) -> dict[str, Any] | list[dict[str, Any]]:
+    """Get a ticket conversation in Freshdesk.
+
+    By default all pages are fetched and every conversation is returned as a list.
+    Pass `page` to fetch a single page instead; the result then includes pagination info.
+    """
+    if page is not None and page < 1:
+        return {"error": "Page number must be greater than 0"}
+
+    if per_page < 1 or per_page > 100:
+        return {"error": "Page size must be between 1 and 100"}
+
     url = f"https://{FRESHDESK_DOMAIN}/api/v2/tickets/{ticket_id}/conversations"
     headers = {
         "Authorization": f"Basic {base64.b64encode(f'{FRESHDESK_API_KEY}:X'.encode()).decode()}"
     }
+
     async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers=headers)
-        return response.json()
+        try:
+            if page is not None:
+                params = {"page": page, "per_page": per_page}
+                response = await client.get(url, headers=headers, params=params)
+                response.raise_for_status()
+
+                pagination_info = parse_link_header(response.headers.get('Link', ''))
+
+                return {
+                    "conversations": response.json(),
+                    "pagination": {
+                        "current_page": page,
+                        "next_page": pagination_info.get("next"),
+                        "prev_page": pagination_info.get("prev"),
+                        "per_page": per_page
+                    }
+                }
+
+            # Fetch every page by following the Link header until there is no next page
+            conversations = []
+            current_page = 1
+            while current_page:
+                params = {"page": current_page, "per_page": per_page}
+                response = await client.get(url, headers=headers, params=params)
+                response.raise_for_status()
+                conversations.extend(response.json())
+                current_page = parse_link_header(response.headers.get('Link', '')).get("next")
+
+            return conversations
+
+        except httpx.HTTPStatusError as e:
+            return {"error": f"Failed to fetch ticket conversation: {str(e)}"}
+        except Exception as e:
+            return {"error": f"An unexpected error occurred: {str(e)}"}
 
 @mcp.tool()
 async def create_ticket_reply(
