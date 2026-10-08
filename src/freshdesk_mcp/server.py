@@ -1,9 +1,12 @@
 import httpx2 as httpx
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
+from starlette.responses import PlainTextResponse
+import uvicorn
 import logging
 import os
 import base64
+import hmac
 from typing import Optional, Union, Any
 from enum import IntEnum, Enum
 import re
@@ -17,6 +20,27 @@ mcp = MCPServer("freshdesk-mcp")
 
 FRESHDESK_API_KEY = os.getenv("FRESHDESK_API_KEY")
 FRESHDESK_DOMAIN = os.getenv("FRESHDESK_DOMAIN")
+
+
+class BearerTokenMiddleware:
+    """Reject HTTP requests that don't carry `Authorization: Bearer <token>`."""
+
+    def __init__(self, app, token: str):
+        self.app = app
+        self.expected = f"Bearer {token}".encode()
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        provided = dict(scope["headers"]).get(b"authorization", b"")
+        if not hmac.compare_digest(provided, self.expected):
+            response = PlainTextResponse("Unauthorized", status_code=401, headers={"WWW-Authenticate": "Bearer"})
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
 
 
 def parse_link_header(link_header: str) -> dict[str, Optional[int]]:
@@ -1329,16 +1353,24 @@ def main():
         allowed_hosts += [h.strip() for h in os.getenv("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
         allowed_origins = [f"{scheme}://{h}" for h in allowed_hosts for scheme in ("http", "https")]
 
-        mcp.run(
-            transport="streamable-http",
-            host=os.getenv("MCP_HOST", "127.0.0.1"),
-            port=int(os.getenv("MCP_PORT", "8000")),
+        host = os.getenv("MCP_HOST", "127.0.0.1")
+        app = mcp.streamable_http_app(
+            host=host,
             transport_security=TransportSecuritySettings(
                 enable_dns_rebinding_protection=True,
                 allowed_hosts=allowed_hosts,
                 allowed_origins=allowed_origins,
             ),
         )
+
+        # Optional static bearer token; without it anyone who can reach the port can use the API key.
+        auth_token = os.getenv("MCP_AUTH_TOKEN")
+        if auth_token:
+            app.add_middleware(BearerTokenMiddleware, token=auth_token)
+        else:
+            logging.warning("MCP_AUTH_TOKEN is not set; the HTTP server accepts unauthenticated requests")
+
+        uvicorn.run(app, host=host, port=int(os.getenv("MCP_PORT", "8000")))
     else:
         mcp.run(transport="stdio")
 

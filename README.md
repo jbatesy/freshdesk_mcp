@@ -165,6 +165,7 @@ docker run -d --name freshdesk-mcp --restart unless-stopped \
   -p 127.0.0.1:8000:8000 \
   -e FRESHDESK_API_KEY=<YOUR_FRESHDESK_API_KEY> \
   -e FRESHDESK_DOMAIN=<YOUR_FRESHDESK_DOMAIN> \
+  -e MCP_AUTH_TOKEN=<A_LONG_RANDOM_SECRET> \
   ghcr.io/jbatesy/freshdesk_mcp:latest
 ```
 
@@ -173,7 +174,8 @@ Or build the image yourself with `docker build -t freshdesk-mcp .` and use `fres
 Then point your MCP client at the server. For Claude Code:
 
 ```bash
-claude mcp add --transport http freshdesk http://localhost:8000/mcp
+claude mcp add --transport http freshdesk http://localhost:8000/mcp \
+  --header "Authorization: Bearer <A_LONG_RANDOM_SECRET>"
 ```
 
 For clients configured with JSON:
@@ -182,12 +184,15 @@ For clients configured with JSON:
 "mcpServers": {
   "freshdesk-mcp": {
     "type": "http",
-    "url": "http://localhost:8000/mcp"
+    "url": "http://localhost:8000/mcp",
+    "headers": {
+      "Authorization": "Bearer <A_LONG_RANDOM_SECRET>"
+    }
   }
 }
 ```
 
-**Security**: the server has no authentication of its own, and anyone who can reach it can act on your Freshdesk account with your API key. The `-p 127.0.0.1:8000:8000` mapping above keeps it reachable only from your own machine. Requests whose `Host` or `Origin` header isn't localhost are rejected, which protects against DNS rebinding attacks from web pages open in your browser. If you expose the server beyond localhost, put it behind a reverse proxy that handles authentication and TLS, and allow the proxy's hostname with `MCP_ALLOWED_HOSTS`.
+**Security**: anyone who can reach the server can act on your Freshdesk account with your API key. Set `MCP_AUTH_TOKEN` (e.g. `openssl rand -hex 32`) so clients must send `Authorization: Bearer <token>`; without it the server accepts unauthenticated requests and logs a warning. The `-p 127.0.0.1:8000:8000` mapping above keeps it reachable only from your own machine. Requests whose `Host` or `Origin` header isn't localhost are rejected, which protects against DNS rebinding attacks from web pages open in your browser. If you expose the server beyond localhost, set `MCP_AUTH_TOKEN`, put it behind a reverse proxy that handles TLS, and allow the proxy's hostname with `MCP_ALLOWED_HOSTS`.
 
 The image can be configured with these environment variables:
 
@@ -198,6 +203,7 @@ The image can be configured with these environment variables:
 | `MCP_TRANSPORT` | `streamable-http` | `streamable-http` or `stdio` |
 | `MCP_HOST` | `0.0.0.0` | Address to listen on inside the container |
 | `MCP_PORT` | `8000` | Port to listen on |
+| `MCP_AUTH_TOKEN` | | Shared secret clients must send as `Authorization: Bearer <token>`. Unset means no authentication |
 | `MCP_ALLOWED_HOSTS` | | Comma-separated extra `Host` values to accept besides localhost, e.g. `mcp.example.com` or `mcp.example.com:*` |
 
 To use the image over stdio instead, run it with `docker run -i --rm -e MCP_TRANSPORT=stdio ...`.
