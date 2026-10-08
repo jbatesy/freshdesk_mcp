@@ -204,6 +204,7 @@ The image can be configured with these environment variables:
 | `MCP_HOST` | `0.0.0.0` | Address to listen on inside the container |
 | `MCP_PORT` | `8000` | Port to listen on |
 | `MCP_AUTH_TOKEN` | | Shared secret clients must send as `Authorization: Bearer <token>`. Unset means no authentication |
+| `MCP_READ_ONLY` | | Set to `true` to remove every tool that creates, updates or deletes data |
 | `MCP_ALLOWED_HOSTS` | | Comma-separated extra `Host` values to accept besides localhost, e.g. `mcp.example.com` or `mcp.example.com:*` |
 
 To use the image over stdio instead, run it with `docker run -i --rm -e MCP_TRANSPORT=stdio ...`.
@@ -229,7 +230,7 @@ npx -y @smithery/cli install @effytech/freshdesk_mcp --client claude
 
 ### Usage with Claude Desktop (stdio via uvx)
 
-Outside Docker, the server uses the stdio transport by default. Set `MCP_TRANSPORT=streamable-http` to serve HTTP instead (it listens on `127.0.0.1:8000` unless `MCP_HOST`/`MCP_PORT` are set).
+Outside Docker, the server uses the stdio transport by default. Set `MCP_TRANSPORT=streamable-http` to serve HTTP instead (it listens on `127.0.0.1:8000` unless `MCP_HOST`/`MCP_PORT` are set). Set `MCP_READ_ONLY=true` to disable all create, update and delete tools.
 
 1. Install Claude Desktop if you haven't already
 2. Add the following configuration to your `claude_desktop_config.json`:

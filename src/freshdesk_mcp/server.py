@@ -5,6 +5,7 @@ from starlette.responses import PlainTextResponse
 import uvicorn
 import logging
 import os
+import asyncio
 import base64
 import hmac
 from typing import Optional, Union, Any
@@ -1344,6 +1345,13 @@ async def delete_ticket_summary(ticket_id: int) -> dict[str, Any]:
 def main():
     transport = os.getenv("MCP_TRANSPORT", "stdio")
     logging.info(f"Starting Freshdesk MCP server ({transport})")
+
+    # Read-only mode drops every tool that creates, updates or deletes data in Freshdesk.
+    if os.getenv("MCP_READ_ONLY", "").lower() in ("1", "true", "yes"):
+        write_tools = [t.name for t in asyncio.run(mcp.list_tools()) if re.match(r"(create|update|delete)_", t.name)]
+        for name in write_tools:
+            mcp.remove_tool(name)
+        logging.info(f"Read-only mode: disabled {len(write_tools)} write tools")
 
     if transport == "streamable-http":
         # Keep DNS rebinding protection on even when bound to all interfaces (e.g. in Docker),
